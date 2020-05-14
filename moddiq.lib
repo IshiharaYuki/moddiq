@@ -17,6 +17,8 @@ REFERENCES:
 PROCEDURES:
   modQuotient(I,J); a basis of (I:J) using modular methods
   modSat(I,J); a basis of (I:J^\infty) using modular methods
+  diq(I,J); a basis of the double ideal quotient (I:(I:J))
+            using quotient
 
 UPCOMING PROCEDURES:
   moddiq(I,J); a basis of (I:(I:J)) using modular methods
@@ -308,4 +310,23 @@ static proc finalTest_sat(string command, alias list args, def result)
     return(1);
 }
 
-
+proc diq(def I, def J, #)
+"USAGE:   diq(I,J); I,J ideal
+RETURN:   a  basis of (I:(I:J))
+NOTE:     The procedure computes a basis of (I:(I:J)) (over the rational
+          numbers).
+EXAMPLE:  example diq; shows an example"
+{
+    ideal IJ=quotient(I,J);
+    ideal IIJ=quotient(I,IJ);
+    return(IIJ);
+}
+example
+{
+    "EXAMPLE:";
+    echo = 2;
+    ring r=0,(x,y),dp;
+    ideal i=x2,xy;
+    ideal j=x;
+    diq(i,j);
+}
