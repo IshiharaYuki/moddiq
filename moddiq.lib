@@ -154,14 +154,14 @@ static proc finalTest_quotient(string command, alias list args, def result)
 
 proc modSat(def I, def J)
 "USAGE:   modSat(I,J); I,J ideal
-RETURN:   a standard basis of (I:J^\infty)
-NOTE:     The procedure computes a standard basis of (I:J^\infty) (over the rational
+RETURN:   a basis of (I:J^\infty)
+NOTE:     The procedure computes a basis of (I:J^\infty) (over the rational
           numbers) by using modular methods.
 SEE ALSO: modular
 EXAMPLE:  example modSat; shows an example"
 {
-    I = modStd(I);
-    def IJ=modular("sat",list(I,J),primeTest_sat,
+    if(!attrib(I, "isSB")){I = std(I);}
+    def IJ=modular("sat",list(I,J),primeTest_quotient,
       deleteUnluckyPrimes_sat,pTest_sat,finalTest_sat);
     return(IJ);
 }
@@ -173,12 +173,6 @@ example
     ideal i=cyclic(6);
     ideal j=-15*var(5)+16*var(6)^3-60*var(6)^2+225*var(6)-4,2*var(5)^2-7*var(5)+2*var(6)^2-7*var(6)+28,(4*var(6)-1)*var(5)-var(6)+4,4*var(1)+var(5)+var(6),4*var(2)+var(5)+var(6),4*var(3)+var(5)+var(6),4*var(4)+var(5)+var(6); 
     modSat(i,modSat(i,j)[1])[1];
-}
-
-/* test if the prime p is permissible for I and J */
-static proc primeTest_sat(int p, alias list args)
-{
-    return(primeTest_quotient(p,args));
 }
 
 /* find entries in modresults which come from unlucky primes.
@@ -299,14 +293,14 @@ static proc finalTest_sat(string command, alias list args, def result)
     /* test if result is in (I:J^\infty)*/
     int i;
     ideal H = result[1];
-    int m=0;
+    int m = 0;
     for (i = 0 ; i < result[2]; i++){m++;}
     ideal JGm;
-    for (i = 0 ; i < size(args[2]); i++)
+    for (i = 1 ; i <= size(args[2]); i++)
     {
-      JGm = JGm + args[2]^m;
+      JGm = JGm + args[2][i]^m;
     }
-    def K=H*JGm;
+    def K = H * JGm;
     for (i = ncols(K); i > 0; i--)
     {
         if (reduce(K[i], args[1], 1) != 0) {print("fail") return(0); }
