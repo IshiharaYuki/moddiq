@@ -18,10 +18,10 @@ PROCEDURES:
   modQuotient(I,J); a basis of (I:J) using modular methods
   modSat(I,J); a basis of (I:J^\infty) using modular methods
   diq(I,J); a basis of the double ideal quotient (I:(I:J))
-            using quotient
+  modDiq(I,J); a basis of the double ideal quotient (I:(I:J))
+               using modular methods
 
 UPCOMING PROCEDURES:
-  moddiq(I,J); a basis of (I:(I:J)) using modular methods
   modAssCheck(I,P); check if P is associated of I or not using modular methods
   IntermediatePrimaryDecomposition(I); compute intermediate primary decomposition of I
                                        by using modular method
@@ -329,4 +329,107 @@ example
     ideal i=x2,xy;
     ideal j=x;
     diq(i,j);
+}
+
+proc modDiq(def I, def J)
+"USAGE:   modDiq(I,J); I,J ideal
+RETURN:   a basis of (I:(I:J))
+NOTE:     The procedure computes a basis of (I:(I:J)) (over the rational
+          numbers) by using modular methods.
+SEE ALSO: modular
+EXAMPLE:  example modDiq; shows an example"
+{
+    if(!attrib(I,"isSB")){print("compute std");I = std(I);}
+    if(!attrib(J,"isSB")){print("compute std");J = std(J);}
+    def IJ = modQuotient(I,J);
+    def IIJ = modular("diq",list(I,J,IJ),primeTest_quotient,Modstd::deleteUnluckyPrimes_std,pTest_diq,finalTest_diq);
+    return(IIJ);
+}
+example
+{
+    "EXAMPLE:";
+    echo = 2;
+    ring r=0,x(1..6),dp;
+    ideal i=cyclic(6);
+    ideal j=-15*var(5)+16*var(6)^3-60*var(6)^2+225*var(6)-4,2*var(5)^2-7*var(5)+2*var(6)^2-7*var(6)+28,(4*var(6)-1)*var(5)-var(6)+4,4*var(1)+var(5)+var(6),4*var(2)+var(5)+var(6),4*var(3)+var(5)+var(6),4*var(4)+var(5)+var(6); 
+    modDiq(i,j);
+}
+
+static proc primeTest_diq(int p, alias list args)
+{
+    def I = args[1];
+    def J = args[2];
+    def IJ = args[3];
+    if(!isPermissible(p,I)){print("not permissible");return(0);}
+    if(!isPermissible(p,J)){print("not permissible");return(0);}
+    if(!isPermissible(p,IJ)){print("not permissible");return(0);}
+    return(1);
+}
+
+static proc pTest_diq(string command, alias list args, alias def result,
+    int p)
+{
+    /* change to characteristic p */
+    def br = basering;
+    list lbr = ringlist(br);
+    if (typeof(lbr[1]) == "int") { lbr[1] = p; }
+    else { lbr[1][1] = p; }
+    def rp = ring(lbr);
+    setring(rp);
+    list args_fetched = fetch(br, args);
+    def Ip = args_fetched[1];
+    def Jp = args_fetched[2];
+    def IJp = args_fetched[3];
+    def Gp = fetch(br, result);
+    def IpJp;
+    def IpIpJp;
+    attrib(Gp, "isSB", 1);
+    Gp = std(Gp);
+
+    /* test if (Ip:(Ip:Jp)) is in Gp */
+    int i;
+    /* compute diq(Ip,Jp) */
+    IpJp = quotient(Ip, Jp);
+    IpIpJp = quotient(Ip, IpJp);
+    for (i = ncols(IpIpJp); i > 0; i--)
+    {
+        if (reduce(IpIpJp[i], Gp, 1) != 0)
+        {
+            setring(br);
+            return(0);
+        }
+    }
+
+    /* test if Gp is in (Ip:(Ip:Jp)) */
+    if(!attrib(IpIpJp, "isSB")){IpIpJp = std(IpIpJp)};
+    for (i = ncols(Gp); i > 0; i--)
+    {
+        if (reduce(Gp[i], IpIpJp, 1) != 0) { setring(br); return(0); }
+    }
+
+    /* test if (Ip:Jp) is in IJp */
+    if(!attrib(IJp, "isSB")){IJp = std(IJp)};
+    for (i = ncols(IpJp); i > 0; i--)
+    {
+        if (reduce(IpJp[i], IJp, 1) != 0)
+        {
+            setring(br);
+            return(0);
+        }
+    }
+    setring(br);
+    return(1);
+}
+
+static proc finalTest_diq(string command, alias list args, def result)
+{
+    /* test if result is in (I:J)*/
+    int i;
+    ideal IJ = args[3];
+    ideal RIJ = result * IJ;
+    for (i = ncols(RIJ); i > 0; i--)
+    {
+        if (reduce(RIJ[i], args[1], 1) != 0) {print("fail"); return(0); }
+    }
+    return(1);
 }
