@@ -141,7 +141,7 @@ static proc pTest_quotient(string command, alias list args, alias def result,
     return(1);
 }
 
-/* test if 'result' is a GB of (I:J) */
+/* test if 'result' is a basis of (I:J) */
 static proc finalTest_quotient(string command, alias list args, def result)
 {
     /* test if result is in (I:J)*/
@@ -289,7 +289,7 @@ static proc pTest_sat(string command, alias list args, alias def result,
     return(1);
 }
 
-/* test if 'result' is a GB of (I:J^\infty) */
+/* test if 'result' is a basis of (I:J^\infty) */
 static proc finalTest_sat(string command, alias list args, def result)
 {
     /* test if result is in (I:J^\infty)*/
