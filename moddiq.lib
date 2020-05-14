@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////////
-version="version moddiq.lib 4.1.2.0 Feb_2020 "; // $Id$
+version="version moddiq.lib 4.1.2.1 May_2020 "; // $Id$
 category="Commutative Algebra";
 info="
 LIBRARY:  moddiq.lib       Double ideal quotient using modular methods
@@ -15,11 +15,11 @@ REFERENCES:
   Math.Comput.Sci. 12: 1, 1-32. (2017). 
 
 PROCEDURES:
-  modQuotient(I,J); standard basis of (I:J) using modular methods
-  modSat(I,J); standard basis of (I:J^\infty) using modular methods
+  modQuotient(I,J); a basis of (I:J) using modular methods
+  modSat(I,J); a basis of (I:J^\infty) using modular methods
 
 UPCOMING PROCEDURES:
-  moddiq(I,J); standard basis of (I:(I:J)) using modular methods
+  moddiq(I,J); a basis of (I:(I:J)) using modular methods
   modAssCheck(I,P); check if P is associated of I or not using modular methods
   IntermediatePrimaryDecomposition(I); compute intermediate primary decomposition of I
                                        by using modular method
@@ -32,13 +32,13 @@ LIB "modstd.lib";
 
 proc modQuotient(def I, def J)
 "USAGE:   modQuotient(I,J); I,J ideal
-RETURN:   a standard basis of (I:J)
-NOTE:     The procedure computes a standard basis of (I:J) (over the rational
+RETURN:   a basis of (I:J)
+NOTE:     The procedure computes a basis of (I:J) (over the rational
           numbers) by using modular methods.
 SEE ALSO: modular
 EXAMPLE:  example modQuotient; shows an example"
 {
-    I = modStd(I);
+    if(!attrib(I, "isSB")){I = std(I);}
     def IJ=modular("quotient",list(I,J),primeTest_quotient,
       Modstd::deleteUnluckyPrimes_std,pTest_quotient,finalTest_quotient);
     return(IJ);
@@ -114,7 +114,7 @@ static proc pTest_quotient(string command, alias list args, alias def result,
     def Gp = fetch(br, result);
     def IJp;
     attrib(Ip, "isSB", 1);
-    attrib(Gp, "isSB", 1);
+    Gp = std(Gp);
 
     /* test if (Ip:Jp) is in Gp */
     /* compute command(args) */
@@ -130,7 +130,7 @@ static proc pTest_quotient(string command, alias list args, alias def result,
     }
     
     /* test if Gp is in (Ip:Jp) */
-    ideal GpJp=Gp*Jp;
+    ideal GpJp = Gp*Jp;
     for (i = ncols(GpJp); i > 0; i--)
     {
         if (reduce(GpJp[i], Ip, 1) != 0) { setring(br); return(0); }
@@ -143,9 +143,8 @@ static proc pTest_quotient(string command, alias list args, alias def result,
 static proc finalTest_quotient(string command, alias list args, def result)
 {
     /* test if result is in (I:J)*/
-    attrib(result, "isSB", 1);
     int i;
-    def IJ=result*args[2];
+    def IJ = result * args[2];
     for (i = ncols(IJ); i > 0; i--)
     {
         if (reduce(IJ[i], args[1], 1) != 0) {print("fail") return(0); }
