@@ -339,8 +339,8 @@ NOTE:     The procedure computes a basis of (I:(I:J)) (over the rational
 SEE ALSO: modular
 EXAMPLE:  example modDiq; shows an example"
 {
-    if(!attrib(I,"isSB")){print("compute std");I = std(I);}
-    if(!attrib(J,"isSB")){print("compute std");J = std(J);}
+    if(!attrib(I,"isSB")){I = std(I);}
+    if(!attrib(J,"isSB")){J = std(J);}
     def IJ = modQuotient(I,J);
     def IIJ = modular("diq",list(I,J,IJ),primeTest_quotient,Modstd::deleteUnluckyPrimes_std,pTest_diq,finalTest_diq);
     return(IIJ);
@@ -353,17 +353,6 @@ example
     ideal i=cyclic(6);
     ideal j=-15*var(5)+16*var(6)^3-60*var(6)^2+225*var(6)-4,2*var(5)^2-7*var(5)+2*var(6)^2-7*var(6)+28,(4*var(6)-1)*var(5)-var(6)+4,4*var(1)+var(5)+var(6),4*var(2)+var(5)+var(6),4*var(3)+var(5)+var(6),4*var(4)+var(5)+var(6); 
     modDiq(i,j);
-}
-
-static proc primeTest_diq(int p, alias list args)
-{
-    def I = args[1];
-    def J = args[2];
-    def IJ = args[3];
-    if(!isPermissible(p,I)){print("not permissible");return(0);}
-    if(!isPermissible(p,J)){print("not permissible");return(0);}
-    if(!isPermissible(p,IJ)){print("not permissible");return(0);}
-    return(1);
 }
 
 static proc pTest_diq(string command, alias list args, alias def result,
