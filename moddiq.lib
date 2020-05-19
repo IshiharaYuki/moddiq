@@ -355,6 +355,13 @@ example
     modDiq(i,j);
 }
 
+/* test if 'diq' applied to 'args[1],args[2]' in characteristic p is the same as
+   'result' mapped to characteristic p 
+   test if 'quotient' applied to '[args[1],args[2]]' in characteristic p is 
+   the same as args[3] mapped to characteristic p
+   (Since (Ip:Jp)\supset (I:J)p always holds, it is enough to check the other
+   inclusion)
+   */
 static proc pTest_diq(string command, alias list args, alias def result,
     int p)
 {
@@ -410,9 +417,10 @@ static proc pTest_diq(string command, alias list args, alias def result,
     return(1);
 }
 
+/* test if 'result' is a basis of (I:(I:J)) */
 static proc finalTest_diq(string command, alias list args, def result)
 {
-    /* test if result is in (I:J)*/
+    /* test if result is in (I:(I:J))*/
     int i;
     ideal IJ = args[3];
     ideal RIJ = result * IJ;
