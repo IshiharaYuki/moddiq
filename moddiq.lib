@@ -22,7 +22,7 @@ PROCEDURES:
   diq(I,J); a basis of the double ideal quotient (I:(I:J))
   modDiq(I,J); a basis of the double ideal quotient (I:(I:J))
                using modular methods
-  modIsAssociated(I,P); check if P is associated of I or not using modular methods
+  modIsAssociated(I,P); check if P is associated with I or not using modular methods
 
 UPCOMING PROCEDURES:
   IntermediatePrimaryDecomposition(I); compute intermediate primary decomposition of I
