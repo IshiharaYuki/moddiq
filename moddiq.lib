@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////////
-version="version moddiq.lib 4.1.2.1 May_2020 "; // $Id$
+version="version moddiq.lib 4.1.2.2 March_2021 "; // $Id$
 category="Commutative Algebra";
 info="
 LIBRARY:  moddiq.lib       Double ideal quotient using modular methods
@@ -7,12 +7,14 @@ LIBRARY:  moddiq.lib       Double ideal quotient using modular methods
 AUTHORS:  Y. Ishihara     yishihara@rikkyo.ac.jp
 
 OVERVIEW:
-  A library for computing ideal quotient and saturation in the polynomial ring
+  A library for computing (double) ideal quotient and saturation in the polynomial ring
   over the rational numbers using modular methods.
 
 REFERENCES:
   M. Noro, K. Yokoyama: Usage of Modular Techniques for Efficient Computation of Ideal Operations. 
   Math.Comput.Sci. 12: 1, 1-32. (2017). 
+  Y. Ishihara.: Modular techniques for effective localization and double ideal quotient.
+  In Proceedings of ISSAC'20, ACM, 265-272 (2020)
 
 PROCEDURES:
   modQuotient(I,J); a basis of (I:J) using modular methods
@@ -20,9 +22,9 @@ PROCEDURES:
   diq(I,J); a basis of the double ideal quotient (I:(I:J))
   modDiq(I,J); a basis of the double ideal quotient (I:(I:J))
                using modular methods
+  modIsAssociated(I,P); check if P is associated of I or not using modular methods
 
 UPCOMING PROCEDURES:
-  modAssCheck(I,P); check if P is associated of I or not using modular methods
   IntermediatePrimaryDecomposition(I); compute intermediate primary decomposition of I
                                        by using modular method
 ";
@@ -360,8 +362,7 @@ example
    test if 'quotient' applied to '[args[1],args[2]]' in characteristic p is 
    the same as args[3] mapped to characteristic p
    (Since (Ip:Jp)\supset (I:J)p always holds, it is enough to check the other
-   inclusion)
-   */
+   inclusion) */
 static proc pTest_diq(string command, alias list args, alias def result,
     int p)
 {
@@ -429,4 +430,244 @@ static proc finalTest_diq(string command, alias list args, def result)
         if (reduce(RIJ[i], args[1], 1) != 0) {print("fail"); return(0); }
     }
     return(1);
+}
+
+proc modIsAssociated(def I, def P)
+"USAGE:   modIsAssociated(I,P); I,P ideal
+RETURN:   1 if P is an associated prime
+          0 if P is not an associated prime
+NOTE:     The procedure tests if P is associated with I or not
+          by using modular methods. 
+SEE ALSO: modular
+/*referring to Modular::modular */
+{
+    if(!attrib(I,"isSB")){I = std(I);}
+    def Command = "Moddiq::isAssociated";
+    def Arguments = list(I,P);
+    def primeTest = primeTest_quotient;
+    def pTest = pTest_quotient;
+    int finalTest = 1;
+    ideal IP;
+    ideal IIP;
+    def RP;
+    def RIP;
+
+    /* check for errors */
+    if (char(basering) != 0)
+    { ERROR("The characteristic must be zero."); }
+
+    /* auxiliary variables */
+    int i;
+
+    /* set maximal prime number */
+    int pmax = 2147483647;
+    if (npars(basering) > 0)
+    {
+        pmax = 536870909;   // prime(2^29)
+    }
+
+    /* modular computations */
+    def result;
+    def result_lift;
+    bigint N = 1;
+    list modresults;
+    list primes;
+    int nAllPrimes;
+    int nNewPrimes;
+    int p;
+    list indices;
+    int ncores_available;
+    int product_primes;
+
+    /* export command and arguments */
+    exportto(Modular, Command);
+    exportto(Modular, Arguments);
+    exportto(Modular, primeTest);
+
+    while (1)
+    {
+        // compute list of primes
+        if (nAllPrimes == 0)
+        {
+            nNewPrimes = Modular::NbModProcs();
+        }
+        else
+        {
+            ncores_available = max(1, system("semaphore", "get_value",
+                    Resources::sem_cores)+1);
+            if (nAllPrimes < ncores_available)
+            {
+                nNewPrimes = nAllPrimes;
+            }
+            else
+            {
+                nNewPrimes = (nAllPrimes div ncores_available)
+                    *ncores_available;
+            }
+        }
+        primes = Modular::primeList(nNewPrimes, pmax);
+        pmax = primes[size(primes)]-1;
+        nAllPrimes = nAllPrimes+nNewPrimes;
+
+        // do computation modulo several primes
+        for (i = size(primes); i > 0; i--)
+        {
+            task t(i) = "Modular::modp", primes[i];
+        }
+        startTasks(t(1..size(primes)));
+        waitAllTasks(t(1..size(primes)));
+        for (i = size(primes); i > 0; i--)
+        {
+            modresults[i] = getResult(t(i));
+            killTask(t(i));
+            kill t(i);
+        }
+
+        // delete unlucky primes
+        indices = deleteUnluckyPrimes_sat(modresults);
+        indices = sort(indices)[1];
+        for (i = size(indices); i > 1; i--)
+        {
+            if (indices[i] == indices[i-1])
+            {
+                indices = delete(indices, i);
+            }
+        }
+        for (i = size(indices); i > 0; i--)
+        {
+            modresults = delete(modresults, indices[i]);
+            primes = delete(primes, indices[i]);
+        }
+
+        // lift result
+        if (N == 1)
+        {
+            result_lift = Modular::chinrem_recursive(modresults, primes);
+        }
+        else
+        {
+            result_lift = Modular::chinrem_recursive(list(result_lift)+modresults,
+                list(N)+primes);
+        }
+        for (i = size(primes); i > 0; i--)
+        {
+            N = N*primes[i];
+        }
+        // apply farey
+        result = Modular::farey_parallel(result_lift, N); 
+
+        // pTest
+        p = prime(random(pmax div 2, pmax-1));
+        while (!primeTest_quotient(p, Arguments))
+        {
+            if (p <= 2) { ERROR("no more primes"); }
+            p = prime(random(p div 2, p-1));
+        }
+        
+        // define IP as a candidate of a GB of (I:P)
+        IP = ideal(result[2]);
+
+        // check if IP is a GB of (I:P) or not
+        if (!pTest("quotient", Arguments, IP, p)) { continue; }
+        RP = IP * P;
+        for (i = ncols(RP); i > 0; i--)
+        {
+            if (reduce(RP[i], I, 1) != 0) {finalTest = 0;break;}
+        }
+
+        // check if associated or non-associated
+        if (finalTest)
+        {
+            if (modresults[1][1] == 0)
+            {
+                // test associated
+                if(N > normOfBasis(P)){return(1);}
+            }
+            else
+            {
+                // test non-associated
+                // pTest
+                p = prime(random(pmax div 2, pmax-1));
+                while (!primeTest_quotient(p, Arguments))
+                {
+                    if (p <= 2) { ERROR("no more primes"); }
+                    p = prime(random(p div 2, p-1));
+                }
+                
+                // define IIP as a candiate of a GB of (I:(I:P))
+                IIP = ideal(result[1]);
+
+                // test if IIP is a GB of (I:(I:P))
+                def Arguments_diq = list(I,P,IP); 
+                if (!pTest_diq("diq", Arguments_diq, IIP, p)) { continue; }
+                RIP = result[1] * IP;
+                for (i = ncols(RIP); i > 0; i--)
+                {
+                    if (reduce(RIP[i], I, 1) != 0) {finalTest = 0;break;}
+                }
+
+                if(finalTest){return(0);}
+            }
+        }
+    }
+}
+example
+{
+    "EXAMPLE:";
+    echo=2;
+    ring r=0,x(1..6),dp;
+    ideal i=cyclic(6);
+    ideal j=-15*var(5)+16*var(6)^3-60*var(6)^2+225*var(6)-4,2*var(5)^2-7*var(5)+2*var(6)^2-7*var(6)+28,(4*var(6)-1)*var(5)-var(6)+4,4*var(1)+var(5)+var(6),4*var(2)+var(5)+var(6),4*var(3)+var(5)+var(6),4*var(4)+var(5)+var(6); 
+    modIsAssociated(i,j);
+}
+
+/* return list(0,(I:J)) if J is associated with I
+ *        list((I:(I:J)),(I:J)) otherwise */
+static proc isAssociated(def I, def J)
+{
+    int i;
+    if(!attrib(J,"isSB")){J = std(J);}
+    ideal IJ=quotient(I,J);
+    ideal IIJ=quotient(I,IJ);
+    // check if (I:(I:J))\subset J or not
+    for (i = ncols(IIJ); i > 0; i--)
+    {
+        if (reduce(IIJ[i], J, 1) != 0) 
+        {
+            list l = IIJ,IJ;
+            return(l); 
+        }
+    }
+    ideal k = 0;
+    list l = k,IJ;
+    return(l);
+}
+
+/* compute the norm of Basis i.e.
+ * the maximum value of a^2+b^2
+ * where a/b is a coefficient of a polynomial in G */
+static proc normOfBasis(def G)
+{
+    int i;
+    number coef_biggest;
+    number c;
+    int index;
+    poly f;
+    poly g;
+    index = size(G);
+    coef_biggest = 0;
+    for (i = size(G); i>0; i--)
+    {
+        g = cleardenom(G[i]);
+        g = g - lead(g);
+        while (g != 0)
+        {
+            if (leadcoef(g) > coef_biggest)
+            {
+                coef_biggest = leadcoef(g);
+            }
+            g = g - lead(g);
+        }
+    }
+    return(int(coef_biggest^2+1));
 }
