@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////////
-version="version moddiq.lib 4.1.2.2 March_2021 "; // $Id$
+version="version moddiq.lib 4.2.0.0 March_2021 "; // $Id$
 category="Commutative Algebra";
 info="
 LIBRARY:  moddiq.lib       Double ideal quotient using modular methods
@@ -29,7 +29,7 @@ UPCOMING PROCEDURES:
                                        by using modular method
 ";
 
-LIB "poly.lib";
+LIB "polylib.lib";
 LIB "elim.lib";
 LIB "modular.lib";
 LIB "modstd.lib";
