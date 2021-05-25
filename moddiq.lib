@@ -1,10 +1,10 @@
 ///////////////////////////////////////////////////////////////////////////////
-version="version moddiq.lib 4.2.0.0 March_2021 "; // $Id$
+version="version moddiq.lib 4.2.0.1 May_2021 "; // $Id$
 category="Commutative Algebra";
 info="
 LIBRARY:  moddiq.lib       Double ideal quotient using modular methods
 
-AUTHORS:  Y. Ishihara     yishihara@rikkyo.ac.jp
+AUTHORS:  Y. Ishihara     yishihara@rs.tus.ac.jp
 
 OVERVIEW:
   A library for computing (double) ideal quotient and saturation in the polynomial ring
@@ -39,6 +39,7 @@ proc modQuotient(def I, def J)
 RETURN:   a basis of (I:J)
 NOTE:     The procedure computes a basis of (I:J) (over the rational
           numbers) by using modular methods.
+KEYWORDS: quotient
 SEE ALSO: modular
 EXAMPLE:  example modQuotient; shows an example"
 {
@@ -54,18 +55,18 @@ example
     ring r=0,x(1..6),dp;
     ideal i=cyclic(6);
     ideal j=-15*var(5)+16*var(6)^3-60*var(6)^2+225*var(6)-4,2*var(5)^2-7*var(5)+2*var(6)^2-7*var(6)+28,(4*var(6)-1)*var(5)-var(6)+4,4*var(1)+var(5)+var(6),4*var(2)+var(5)+var(6),4*var(3)+var(5)+var(6),4*var(4)+var(5)+var(6); 
-    modQuotient(i,modQuotient(i,j));
+    modQuotient(i,j);
 }
 
 /* test if a prime number p is permissible for an ideal I 
- * i.e. it does not divide the denominator of any of the coeffients
+ * i.e. it does not divide the denominator of any of the coefficients
  * or numerator of any of the leading coefficients */
 static proc isPermissible(int p,ideal I)
 {
     /* erase zero generators */
     def J = simplify(I, 2);
 
-    /* clear denominators and compute the leading coeffients of
+    /* clear denominators and compute the leading coefficients of
        the cleared one and the original one*/
     int n = ncols(J);
     int i;
@@ -161,6 +162,7 @@ proc modSat(def I, def J)
 RETURN:   a basis of (I:J^\infty)
 NOTE:     The procedure computes a basis of (I:J^\infty) (over the rational
           numbers) by using modular methods.
+KEYWORDS: saturation
 SEE ALSO: modular
 EXAMPLE:  example modSat; shows an example"
 {
@@ -176,7 +178,7 @@ example
     ring r=0,x(1..6),dp;
     ideal i=cyclic(6);
     ideal j=-15*var(5)+16*var(6)^3-60*var(6)^2+225*var(6)-4,2*var(5)^2-7*var(5)+2*var(6)^2-7*var(6)+28,(4*var(6)-1)*var(5)-var(6)+4,4*var(1)+var(5)+var(6),4*var(2)+var(5)+var(6),4*var(3)+var(5)+var(6),4*var(4)+var(5)+var(6); 
-    modSat(i,modSat(i,j)[1])[1];
+    modSat(i,j);
 }
 
 /* find entries in modresults which come from unlucky primes.
