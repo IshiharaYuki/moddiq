@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////////
-version="version moddiq.lib 4.2.0.1 May_2021 "; // $Id$
+version="version moddiq.lib 4.2.1.0 July_2022 "; // $Id$
 category="Commutative Algebra";
 info="
 LIBRARY:  moddiq.lib       Double ideal quotient using modular methods
@@ -15,6 +15,8 @@ REFERENCES:
   Math.Comput.Sci. 12: 1, 1-32. (2017). 
   Y. Ishihara.: Modular techniques for effective localization and double ideal quotient.
   In Proceedings of ISSAC'20, ACM, 265-272 (2020)
+  Y. Ishihara.: Modular techniques for intermediate primary decomposition.
+  In Proceedings of ISSAC'22, ACM, 479-487 (2022)
 
 PROCEDURES:
   modQuotient(I,J); a basis of (I:J) using modular methods
@@ -23,16 +25,18 @@ PROCEDURES:
   modDiq(I,J); a basis of the double ideal quotient (I:(I:J))
                using modular methods
   modIsAssociated(I,P); check if P is associated with I or not using modular methods
+  modInterPrimedec(I); compute the strong intermediate prime decomposition of I by modular methods
+  modAssPrimes(I); compute the set of prime divisors of I by modular methods
 
-UPCOMING PROCEDURES:
-  IntermediatePrimaryDecomposition(I); compute intermediate primary decomposition of I
-                                       by using modular method
 ";
 
 LIB "polylib.lib";
 LIB "elim.lib";
 LIB "modular.lib";
 LIB "modstd.lib";
+LIB "primdec.lib";
+LIB "dmodloc.lib";
+LIB "sets.lib";
 
 proc modQuotient(def I, def J)
 "USAGE:   modQuotient(I,J); I,J ideal
@@ -672,4 +676,302 @@ static proc normOfBasis(def G)
         }
     }
     return(int(coef_biggest^2+1));
+}
+
+proc modInterPrimedec(def I)
+"USAGE:   modInterPrimedec(I); I:ideal
+RETURN:   the intermediate strong prime decomposition of I
+NOTE:     The procedure computes the strong intermediate prime decompositon by using modular methods. 
+SEE ALSO: modular
+/*referring to Modular::modular */
+{
+    if(!attrib(I,"isSB")){print("compute std");I = std(I);}
+    def Command = "Moddiq::interPrimedec";
+    def Arguments = list(I);
+    def primeTest = Modstd::primeTest_std;
+    ideal J;
+
+    /* check for errors */
+    if (char(basering) != 0)
+    { ERROR("The characteristic must be zero."); }
+
+    /* auxiliary variables */
+    int i;
+    int k;
+
+    /* set maximal prime number */
+    int pmax = prime(2^28);
+
+    /* modular computations */
+    def result;
+    def result_lift;
+    list result_new = list();
+    bigint N = 1;
+    list modresults;
+    list modresults_temp;
+    list primes;
+    list primes_temp;
+    int nAllPrimes;
+    int nNewPrimes;
+    int p;
+    list indices;
+    int ncores_available;
+
+    /* export command and arguments */
+    exportto(Modular, Command);
+    exportto(Modular, Arguments);
+    exportto(Modular, primeTest);
+
+    while (1)
+    {
+        // compute list of primes
+        if (nAllPrimes == 0)
+        {
+            nNewPrimes = Modular::NbModProcs();
+        }
+        else
+        {
+            ncores_available = max(1, system("semaphore", "get_value",
+                    Resources::sem_cores)+1);
+            if (nAllPrimes < ncores_available)
+            {
+                nNewPrimes = nAllPrimes;
+            }
+            else
+            {
+                nNewPrimes = (nAllPrimes div ncores_available)
+                    *ncores_available;
+            }
+        }
+        primes = Modular::primeList(nNewPrimes, pmax);
+        pmax = primes[size(primes)]-1;
+        nAllPrimes = nAllPrimes+nNewPrimes;
+
+        // do computation modulo several primes
+        for (i = size(primes); i > 0; i--)
+        {
+            task t(i) = "Modular::modp", primes[i];
+        }
+        startTasks(t(1..size(primes)));
+        waitAllTasks(t(1..size(primes)));
+        for (i = size(primes); i > 0; i--)
+        {
+            modresults[i] = getResult(t(i));
+            killTask(t(i));
+            kill t(i);
+        }
+
+        result_new = list();
+        
+        for (k = size(modresults[1]); k > 0; k--)
+        {
+            modresults_temp = modresults;
+            primes_temp = primes;
+
+            // delete unlucky primes
+            indices = Moddiq::deleteUnluckyPrimes_interPrimedec(modresults_temp,k);
+            indices = sort(indices)[1];
+
+            for (i = size(indices); i > 1; i--)
+            {
+                if (indices[i] == indices[i-1])
+                {
+                    indices = delete(indices, i);
+                }
+            }
+
+            for (i = size(indices); i > 0; i--)
+            {
+                modresults_temp = delete(modresults_temp, indices[i]);
+                primes_temp = delete(primes_temp, indices[i]);
+            }
+
+            // lift result
+            if (N == 1 || k != size(modresults[1]))
+            {
+                result_lift = Modular::chinrem_recursive(modresults_temp, primes_temp);
+            }
+            else
+            {
+                result_lift = Modular::chinrem_recursive(list(result_lift)+modresults_temp,
+                    list(N)+primes_temp);
+            }
+
+            if (k == size(modresults[1]))
+            {
+                for (i = size(primes); i > 0; i--)
+                {
+                    N = N * primes[i];
+                }
+            }
+
+            // apply farey
+            result = Modular::farey_parallel(result_lift, N); 
+
+            // associated check
+            J = result[k];
+            if(modIsAssociated(I,J))
+            {
+                result_new = result_new + list(J);
+            }
+        }
+        if(size(result_new) == size(result)){return(result_new);}
+    }
+}
+example
+{
+    "EXAMPLE:";
+    echo=2;
+    ring r=0,x(1..4),dp;
+    ideal i=cyclic(4);
+    modInterPrimedec(i);
+}
+
+static proc interPrimedec(def I)
+"USAGE:   InterPrimdec(I); I:ideal
+RETURN:   
+NOTE:     The procedure computes an intermediate primary decompositon by using primary decompositions 
+{
+    int i;
+    int j;
+    ideal P;
+    ideal PP;
+    list L = primdecGTZ(I);
+    list l;
+    list M = list();
+    list MM = list();
+    Set Eliminated = list();
+    Set a;
+    Set b;
+    Set c;
+    for (i = 1; i <= size(L); i++)
+    {
+        P = L[i][2];
+        if(!attrib(P,"isSB")){P = std(P);}
+        l = list(indepSet(P,0));
+        if(size(l) == 0)
+        {
+            M = M + list(list());
+        }
+        else
+        {
+            M = M + list(l[1]);
+        }
+    }
+    for (i = 1; i <= size(M); i++)
+    {
+        if (!isElement(i,Eliminated))
+        {
+            PP = L[i][2];
+            a = M[i];
+            for (j = i + 1; j <= size(M); j++)
+            {
+                    if (!isElement(j,Eliminated))
+                    {
+                        b = M[j];
+                        if (a == b)
+                        {
+                            PP = intersect(PP,L[j][2]); 
+                            Eliminated = Eliminated + Set(j);
+                        }
+                    }
+            }
+            MM = MM + list(PP);
+        }
+    }
+    return(MM);
+}
+
+proc modAssPrimes(def I)
+"USAGE:   modAssPrimes(I); I:ideal
+RETURN:   the set of associated prime divisors of I
+NOTE:     The procedure computes the associated prime divisors by using modular methods. 
+{
+    list l = list();
+    list L = modInterPrimedec(I);
+    list primdec;
+    int i;
+    int j;
+    for (i = size(L); i > 0; i--)
+    {    
+        primdec = primdecGTZ(L[i]);
+        for  (j = size(primdec); j > 0; j--)
+        {
+            l = l + list(primdec[j][1]);
+        }
+    }
+    return(l);
+}
+example
+{
+    "EXAMPLE:";
+    echo=2;
+    ring r=0,x(1..4),dp;
+    ideal i=cyclic(4);
+    modAssPrimes(i);
+}
+
+/* find entries in modresults which come from unlucky primes.
+ * For this, sort the entries into categories depending on their leading
+ * ideal and return the indices in all but the biggest category. 
+ * Referring to Modstd::deleteUnlickyPrimes_std. */
+static proc deleteUnluckyPrimes_interPrimedec(alias list modresults, int k)
+{
+    int size_modresults = size(modresults);
+
+    /* sort results into categories.
+     * each category is represented by three entries:
+     * - the corresponding leading ideal
+     * - the number of elements
+     * - the indices of the elements
+     */
+    list cat;
+    int size_cat;
+    def L = modresults[1][k]; // dummy assign to get the type of L
+    int i;
+    int j;
+    for (i = 1; i <= size_modresults; i++)
+    {
+        L = lead(modresults[i][k]);
+        attrib(L, "isSB", 1);
+        for (j = 1; j <= size_cat; j++)
+        {
+            if (size(L) == size(cat[j][1])
+            && size(reduce(L, cat[j][1], 5)) == 0
+            && size(reduce(cat[j][1], L, 5)) == 0)
+            {
+                cat[j][2] = cat[j][2]+1;
+                cat[j][3][cat[j][2]] = i;
+                break;
+            }
+        }
+        if (j > size_cat)
+        {
+            size_cat++;
+            cat[size_cat] = list();
+            cat[size_cat][1] = L;
+            cat[size_cat][2] = 1;
+            cat[size_cat][3] = list(i);
+        }
+    }
+
+    /* find the biggest categories */
+    int cat_max = 1;
+    int max = cat[1][2];
+    for (i = 2; i <= size_cat; i++)
+    {
+        if (cat[i][2] > max)
+        {
+            cat_max = i;
+            max = cat[i][2];
+        }
+    }
+
+    /* return all other indices */
+    list unluckyIndices;
+    for (i = 1; i <= size_cat; i++)
+    {
+        if (i != cat_max) { unluckyIndices = unluckyIndices + cat[i][3]; }
+    }
+    return(unluckyIndices);
 }
